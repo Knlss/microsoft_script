@@ -14,11 +14,29 @@ class Chrome():
     def __init__(self):
         self.chrome_options = Options()
         self.archive = openpyxl.load_workbook('utils/src/accounts.xlsx')
-        self.chrome_options.add_argument("--incognito")
-
+        self.normal_window = None
         self.driver = None
-        self.actions = None
         self.wait = None
+        self.actions = None
+        self.current_window = None
+
+    def openChrome(self):
+        # Abre o navegador Chrome
+        self.chrome_options.add_argument("--incognito")
+        self.driver = webdriver.Chrome(options=self.chrome_options)
+        self.actions = ActionChains(self.driver)
+        self.driver.maximize_window()
+        self.wait = WebDriverWait(self.driver, 10)
+        self.normal_window = self.driver.current_window_handle
+
+    def closeChrome(self):
+
+        if self.driver:
+            self.driver.quit()
+            self.driver = None
+            self.actions = None
+            self.wait = None
+            self.normal_window = None
 
     def obtainEmails(self, rMin, rMax):
         spreadsheet = self.archive["Accounts"]
@@ -31,12 +49,6 @@ class Chrome():
             credentials[email] = senha
             
         return credentials
-
-    def openChrome(self):
-        self.driver = webdriver.Chrome(options=self.chrome_options)
-        self.actions = ActionChains(self.driver)
-        self.driver.maximize_window()
-        self.wait = WebDriverWait(self.driver, 10)
 
     def openBing(self, account, password):
 
@@ -51,6 +63,7 @@ class Chrome():
 
         try:
             no_button = self.wait.until(EC.element_to_be_clickable((By.ID, "declineButton")))
+
             no_button.click()
         except TimeoutException:
             pass
@@ -68,7 +81,7 @@ class Chrome():
         search_field.send_keys(textToSearch)
         search_field.submit()
 
-        for _ in range(5):
+        for _ in range(2):
             result = self.wait.until(EC.element_to_be_clickable((By.ID, "sb_form_q")))
             result.click()
             for _ in range(2):
@@ -85,14 +98,8 @@ class Chrome():
             if link.is_enabled():
                 link.click()
                 time.sleep(5)
-                self.actions.key_down(Keys.CONTROL).send_keys("w").key_up(Keys.CONTROL).perform()
+                self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.CONTROL + "w")
                 time.sleep(2)
-
-    def closeBing(self):
-        time.sleep(2)
-        self.driver.switch_to.window(self.driver.window_handles[0])
-        time.sleep(2)
-        self.driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ALT + Keys.F4)
 
     def getAccounts(self):
         spreadsheet = self.archive["Accounts"]
@@ -116,11 +123,11 @@ class Chrome():
         credentials = self.obtainEmails(rMin, rMax)
 
         for account, password in credentials.items():
-            self.openChrome()
+            self.openChrome() 
             self.openBing(account, password)
             self.startSearch(text, loops)
             self.dayStreak()
-            self.closeBing()
-            time.sleep(3)
+            self.closeChrome()  # Fecha a guia anônima
+            time.sleep(2)
 
 chrome = Chrome()
